@@ -1,6 +1,4 @@
-
 package com.Calorizer.Bot.MainBot;
-
 
 import com.Calorizer.Bot.BotConfiguration.BotConfiguration;
 import com.Calorizer.Bot.MainBot.CalculateMethods.FullReportByMethods;
@@ -9,7 +7,7 @@ import com.Calorizer.Bot.Model.Enum.MainGoal;
 import com.Calorizer.Bot.Model.Enum.PhysicalActivityLevel;
 import com.Calorizer.Bot.Model.Enum.Sex;
 import com.Calorizer.Bot.Model.User;
-import com.Calorizer.Bot.Repository.UserRepository;
+import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,8 +30,10 @@ import java.util.Map;
 @Component
 public class TelegramBot extends TelegramLongPollingBot{
 
-    private final BotConfiguration botConfiguration;
-    private final UserRepository userRepository;
+    @Autowired
+    private  BotConfiguration botConfiguration;
+    @Autowired
+    private UserServiceInt userServiceInt;
 
     private static final Logger logger = LoggerFactory.getLogger(TelegramBot.class);
 
@@ -44,24 +44,28 @@ public class TelegramBot extends TelegramLongPollingBot{
         localizedCommands.put(Language.Ukrainian, List.of(
                 new BotCommand("/start", "Початок діалогу з ботом"),
                 //new BotCommand("/about", "Про бота"),
+                new BotCommand("/profile", "Ваш профіль"),
                 new BotCommand("/changelanguage", "Змінити мову"),
                 new BotCommand("/calculatecalorieforday", "Калькулятор калорій")
         ));
         localizedCommands.put(Language.English, List.of(
                 new BotCommand("/start", "Start interaction with bot"),
                 //new BotCommand("/about", "About the bot"),
+                new BotCommand("/profile", "Ваш профиль"),
                 new BotCommand("/changelanguage", "Change language"),
                 new BotCommand("/calculatecalorieforday", "Calorie calculator")
         ));
         localizedCommands.put(Language.Russian, List.of(
                 new BotCommand("/start", "Начало общения с ботом"),
                 //new BotCommand("/about", "О боте"),
+                new BotCommand("/profile", "Youre profile"),
                 new BotCommand("/changelanguage", "Сменить язык"),
                 new BotCommand("/calculatecalorieforday", "Калькулятор калорий")
         ));
         localizedCommands.put(Language.German, List.of(
                 new BotCommand("/start", "Mit dem Bot kommunizieren"),
                 //new BotCommand("/about", "Information über den Bot"),
+                new BotCommand("/profile", "Ihr Profil"),
                 new BotCommand("/changelanguage", "Sprache ändern"),
                 new BotCommand("/calculatecalorieforday", "Kalorien-Rechner")
         ));
@@ -83,7 +87,7 @@ public class TelegramBot extends TelegramLongPollingBot{
                 "Katch-McArdle", "Метод Кетча-МакАрдла",
                 "Tom Venuto", "Метод Тома Венуто"
         ));
-        methodTranslations.put(Language.English, Map.of(
+        methodTranslations.put(Language.German, Map.of(
                 "Harris-Benedict", "Harris-Benedict Methode",
                 "Mifflin-St Jeor", "Mifflin-St Jeor Methode",
                 "Katch-McArdle", "Katch-McArdle Methode",
@@ -129,11 +133,8 @@ public class TelegramBot extends TelegramLongPollingBot{
     }
 
     @Autowired
-    public TelegramBot(BotConfiguration botConfiguration, UserRepository userRepository) {
-        super(botConfiguration.getBotToken());
-        this.botConfiguration = botConfiguration;
-        this.userRepository = userRepository;
-    }
+    public TelegramBot(BotConfiguration botConfiguration){ super(botConfiguration.getBotToken());
+        this.botConfiguration = botConfiguration;}
 
     public void updateCommands(long chatId, Language language) {
         List<BotCommand> commands = localizedCommands.getOrDefault(language, localizedCommands.get(Language.English));
@@ -167,6 +168,7 @@ public class TelegramBot extends TelegramLongPollingBot{
                 case "/start" -> startCommand(chatId, update.getMessage().getChat().getFirstName());
                 case "/changelanguage" -> sendLanguageSelectionKeyboard(chatId);
                 case "/calculatecalorieforday" -> handleCalorieAgreementStep(chatId);
+                case "/profile" -> showprofile(chatId);
                 default -> sendAvailableCommands(chatId);
             }
         }
@@ -178,12 +180,7 @@ public class TelegramBot extends TelegramLongPollingBot{
     }
 
     private void startCommand(Long chatId, String username) {
-        User user = userRepository.findByChatId(chatId).orElseGet(()->{
-            User newUser = new User();
-            newUser.setChatId(chatId);
-            newUser.setLanguage(Language.English);
-            return userRepository.save(newUser);
-        });
+        User user = userServiceInt.getOrCreateUser(chatId);
 
         updateCommands(chatId, user.getLanguage());
 
@@ -238,24 +235,33 @@ public class TelegramBot extends TelegramLongPollingBot{
                 sendMessage(chatId, "Unsupported language.");
             }
         }
+
         else  if (data.startsWith("AGREE_CALCULATE")){
             userStates.put(chatId, new CalorieInputState());
             askSexStep(chatId);
         }
-        else {
-            sendMessage(chatId, "Unknown command");
+
+        else if (data.startsWith("DISAGREE_CALCULATE")){
+            User user = userServiceInt.getOrCreateUser(chatId);//findByChatId(chatId).orElse(null);
+            Language language = user != null ? user.getLanguage() : Language.English;
+
+            String messageText = switch (language) {
+                case Ukrainian -> "❌ Ви не прийняли умови використання. Розрахунок неможливий.";
+                case Russian -> "❌ Вы не приняли условия использования. Расчет невозможен. ";
+                case German -> "❌ Sie haben die Nutzungsbedingungen nicht akzeptiert. Eine Berechnung ist nicht möglich.";
+                default -> "❌ You did not accept the terms of use. Calculation is not possible.";
+            };
+            sendMessage(chatId, messageText);
         }
+
+        else {sendMessage(chatId, "Unknown command");}
     }
 
     private void updateUserLanguage(Long chatId, Language newLanguage) {
-        User user = userRepository.findByChatId(chatId).orElseGet(() -> {
-            User newUser = new User();
-            newUser.setChatId(chatId);
-            return newUser;
-        });
+        User user = userServiceInt.getOrCreateUser(chatId);
 
         user.setLanguage(newLanguage);
-        userRepository.save(user);
+        userServiceInt.save(user);
 
         updateCommands(chatId, newLanguage);
 
@@ -281,7 +287,7 @@ public class TelegramBot extends TelegramLongPollingBot{
     }
 
     private void sendAvailableCommands(Long chatId) {
-        User user = userRepository.findByChatId(chatId).orElse(null);
+        User user = userServiceInt.getOrCreateUser(chatId);
         Language lang = user != null ? user.getLanguage() : Language.English;
         List<BotCommand> commands = localizedCommands.getOrDefault(lang, localizedCommands.get(Language.English));
 
@@ -304,7 +310,7 @@ public class TelegramBot extends TelegramLongPollingBot{
     }
 
     private void handleCalorieAgreementStep(Long chatId) {
-        User user = userRepository.findByChatId(chatId).orElse(null);
+        User user = userServiceInt.getOrCreateUser(chatId);
         Language language = user != null ? user.getLanguage() : Language.English;
 
         String termsText = switch (language) {
@@ -335,7 +341,16 @@ public class TelegramBot extends TelegramLongPollingBot{
         });
         agreeButton.setCallbackData("AGREE_CALCULATE");
 
-        List<List<InlineKeyboardButton>> buttons = List.of(List.of(agreeButton));
+        InlineKeyboardButton disagreeButton = new InlineKeyboardButton();
+        disagreeButton.setText(switch (language) {
+            case Ukrainian -> "Я прочитав(ла) та не приймаю ❌";
+            case Russian -> "Я прочитал(а) и не принимаю ❌";
+            case German -> "Ich habe gelesen und akzeptiere nicht ❌";
+            default -> "I have read and dont accept ❌";
+        });
+        disagreeButton.setCallbackData("DISAGREE_CALCULATE");
+
+        List<List<InlineKeyboardButton>> buttons = List.of(List.of(disagreeButton,agreeButton));
         InlineKeyboardMarkup markup = new InlineKeyboardMarkup(buttons);
         message.setReplyMarkup(markup);
 
@@ -347,7 +362,7 @@ public class TelegramBot extends TelegramLongPollingBot{
     }
 
     private void askSexStep(Long chatId) {
-        User user = userRepository.findByChatId(chatId).orElse(null);
+        User user = userServiceInt.getOrCreateUser(chatId);
         Language lang = user != null ? user.getLanguage() : Language.English;
 
         String question = switch (lang) {
@@ -362,7 +377,7 @@ public class TelegramBot extends TelegramLongPollingBot{
 
     private void handleCalorieInputSteps(Long chatId, String text) {
         CalorieInputState state = userStates.get(chatId);
-        User user = userRepository.findByChatId(chatId).orElse(null);
+        User user = userServiceInt.getOrCreateUser(chatId);
         Language lang = user != null ? user.getLanguage() : Language.English;
 
         switch (state.currentStep) {
@@ -380,6 +395,7 @@ public class TelegramBot extends TelegramLongPollingBot{
                     });
                     return;
                 }
+
                 state.currentStep = "HEIGHT";
                 sendMessage(chatId, switch (lang) {
                     case Ukrainian -> "Введіть ваш зріст у сантиметрах (наприклад, 175):";
@@ -563,6 +579,11 @@ public class TelegramBot extends TelegramLongPollingBot{
         }
 
         sendMessage(chatId, sb.toString());
+    }
+
+    private void showprofile(Long chatId){
+        String message = userServiceInt.getProfileMessage(chatId);
+        sendMessage(chatId, message);
     }
 
 }

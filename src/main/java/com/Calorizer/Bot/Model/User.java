@@ -12,11 +12,12 @@ import lombok.Setter;
 @NoArgsConstructor
 @Table(name="User")
 public class User {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private long id;
-    private long chatId;
+    private Long chatId;
     private boolean payedAcc;
     @Enumerated(EnumType.STRING)
     private Language language;
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserPhysicalData UPD;
 }
