@@ -1,6 +1,9 @@
 package com.Calorizer.Bot.Service.Implementation;
 
 import com.Calorizer.Bot.Model.Enum.Language;
+import com.Calorizer.Bot.Model.Enum.MainGoal;
+import com.Calorizer.Bot.Model.Enum.PhysicalActivityLevel;
+import com.Calorizer.Bot.Model.Enum.Sex;
 import com.Calorizer.Bot.Model.User;
 import com.Calorizer.Bot.Model.UserPhysicalData;
 import com.Calorizer.Bot.Repository.UserPhysicalDataRepository;
@@ -25,7 +28,9 @@ public class UserServiceImpl implements UserServiceInt {
             User newUser = new User();
             newUser.setChatId(chatId);
             newUser.setLanguage(Language.English);
-            newUser.setPayedAcc(false);
+            //if else just for test /profile rn
+            if(chatId==642196846){newUser.setPayedAcc(true);}
+            else {newUser.setPayedAcc(true);}
             return userRepository.save(newUser);
         });
     }
@@ -49,8 +54,16 @@ public class UserServiceImpl implements UserServiceInt {
 
         if (!userPhysicalDataRepository.existsById(user.getChatId())) {
             UserPhysicalData userPhysicalData = new UserPhysicalData();
-            userPhysicalData.setId(user.getChatId());
             userPhysicalData.setUser(user);
+            user.setUPD(userPhysicalData);
+
+            userPhysicalData.setSex(Sex.MALE);
+            userPhysicalData.setPhysicalActivityLevel(PhysicalActivityLevel.ACTIVE);
+            userPhysicalData.setWeight(75.5);
+            userPhysicalData.setHeight(180.0);
+            userPhysicalData.setAge(30);
+            userPhysicalData.setMaingoal(MainGoal.WEIGHT_LOSS);
+            userPhysicalData.setBodyFatPercent(15.3);
 
             userPhysicalDataRepository.save(userPhysicalData);
             String greeting = switch (user.getLanguage()) {
@@ -79,6 +92,11 @@ public class UserServiceImpl implements UserServiceInt {
     @Override
     public User save(User  user) {
         return userRepository.save(user);
+    }
+
+    @Override
+    public UserPhysicalData save(UserPhysicalData  data) {
+        return userPhysicalDataRepository.save(data);
     }
 
     private String buildProfileMessage(UserPhysicalData profile, Language lang) {

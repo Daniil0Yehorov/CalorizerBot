@@ -10,7 +10,7 @@ public interface UserServiceInt {
 
     User save(User user);
 
-    //UserPhysicalData save(**);
+    UserPhysicalData save(UserPhysicalData userPhysicalData);
 
     //UserPhysicalData update(**);
 

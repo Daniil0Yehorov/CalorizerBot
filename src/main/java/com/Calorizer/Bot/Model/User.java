@@ -15,9 +15,14 @@ public class User {
 
     @Id
     private Long chatId;
+
+    @Column(nullable = false)
     private boolean payedAcc;
     @Enumerated(EnumType.STRING)
+
+    @Column(nullable = false)
     private Language language;
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private UserPhysicalData UPD;
 }

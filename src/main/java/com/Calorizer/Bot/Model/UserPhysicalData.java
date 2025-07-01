@@ -14,6 +14,7 @@ import jakarta.persistence.*;
 @Setter
 @NoArgsConstructor
 @Entity
+@Table(name = "User_Physical_Data")
 public class UserPhysicalData {
     // в /profile ведет пользователь все данные, а при калькуляции может их заюзать вместо ввода
     // таблица будет доступна не бесплатно, ибо на ее основе будут считаться текущие запити клиента и будет формироваться
@@ -29,9 +30,6 @@ public class UserPhysicalData {
 
     @Enumerated(EnumType.STRING)
     private Sex sex;
-
-     @Version
-     private Long version;
 
     @Enumerated(EnumType.STRING)
     private PhysicalActivityLevel physicalActivityLevel;
