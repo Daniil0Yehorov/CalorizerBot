@@ -11,21 +11,41 @@ import com.Calorizer.Bot.Repository.UserRepository;
 import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import com.Calorizer.Bot.Service.LocalizationService;
 import jakarta.transaction.Transactional;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * Implementation of the {@link UserServiceInt} interface.
+ * Provides business logic for managing users and their physical data,
+ * including creation, retrieval, and profile message generation.
+ */
 @Service
 public class UserServiceImpl implements UserServiceInt {
 
-    @Autowired
-    private LocalizationService localizationService;
+    private final LocalizationService localizationService;
 
-    @Autowired
-    private UserRepository userRepository;
+    private final UserRepository userRepository;
 
-    @Autowired
-    private UserPhysicalDataRepository userPhysicalDataRepository;
+    private final UserPhysicalDataRepository userPhysicalDataRepository;
 
+    /**
+     * Constructor for dependency injection. Spring automatically provides instances of the required repositories and services.
+     *
+     * @param localizationService Service for retrieving localized strings.
+     * @param userRepository Repository for {@link User} entities.
+     * @param userPhysicalDataRepository Repository for {@link UserPhysicalData} entities.
+     */
+    UserServiceImpl(LocalizationService localizationService,UserRepository userRepository, UserPhysicalDataRepository userPhysicalDataRepository){
+        this.localizationService=localizationService;
+        this.userRepository=userRepository;
+        this.userPhysicalDataRepository=userPhysicalDataRepository;
+    }
+
+    /**
+     * {@inheritDoc}
+     * Retrieves an existing user by chat ID or creates a new user if not found.
+     * New users are initialized with a default language (English) and a test payment status.
+     * This method is transactional, ensuring atomicity of the operation.
+     */
     @Override
     @Transactional
     public User getOrCreateUser(Long chatId) {
@@ -35,11 +55,18 @@ public class UserServiceImpl implements UserServiceInt {
             newUser.setLanguage(Language.English);
             //if else just for test /profile rn
             if(chatId==642196846){newUser.setPayedAcc(true);}
-            else {newUser.setPayedAcc(true);}
+            else {newUser.setPayedAcc(false);}
             return userRepository.save(newUser);
         });
     }
 
+    /**
+     * {@inheritDoc}
+     * Generates and returns a formatted profile message for the given user.
+     * Handles cases for non-existent users, non-paid accounts, and empty physical data profiles.
+     * This method is transactional only if called from a non-transactional context. If called
+     * from an existing transaction, it will join that transaction.
+     */
     @Override
     @Transactional
     public String getProfileMessage(Long chatId) {
@@ -79,16 +106,32 @@ public class UserServiceImpl implements UserServiceInt {
         return buildProfileMessage(profile, user.getLanguage());
     }
 
+    /**
+     * {@inheritDoc}
+     * Saves a {@link User} entity. This operation is managed by Spring Data JPA.
+     */
     @Override
     public User save(User  user) {
         return userRepository.save(user);
     }
 
+    /**
+     * {@inheritDoc}
+     * Saves a {@link UserPhysicalData} entity. This operation is managed by Spring Data JPA.
+     */
     @Override
     public UserPhysicalData save(UserPhysicalData  data) {
         return userPhysicalDataRepository.save(data);
     }
 
+    /**
+     * Builds a formatted string containing the user's physical profile details.
+     * All labels and units are localized based on the provided language.
+     *
+     * @param profile The {@link UserPhysicalData} object containing the profile details.
+     * @param lang The {@link Language} for localization.
+     * @return A formatted string representing the user's physical profile.
+     */
     private String buildProfileMessage(UserPhysicalData profile, Language lang) {
         String greeting = localizationService.getTranslation(lang, "profile.greeting_existing");
 
@@ -123,6 +166,14 @@ public class UserServiceImpl implements UserServiceInt {
         return sb.toString();
     }
 
+    /**
+     * Provides the correct localized suffix for age (e.g., "year", "years", "годы", "лет" etc.)
+     * based on the number and target language. Handles pluralization rules for different languages.
+     *
+     * @param age The age of the user.
+     * @param lang The target {@link Language} for localization.
+     * @return The localized age suffix string.
+     */
     private String ageSuffix(int age, Language lang) {
         int mod10 = age % 10;
         int mod100 = age % 100;

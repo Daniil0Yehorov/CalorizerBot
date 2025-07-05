@@ -5,6 +5,11 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
+/**
+ * Web controller to provide a simple web page, primarily for deployment health checks
+ * or informational purposes (e.g., on platforms like Heroku).
+ * It demonstrates basic Spring MVC functionality.
+ */
 @Controller
 public class ControllerWebCheck {
     @Value("${server.port}")
