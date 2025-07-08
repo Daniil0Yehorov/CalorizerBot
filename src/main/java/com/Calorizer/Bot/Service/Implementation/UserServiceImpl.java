@@ -54,7 +54,7 @@ public class UserServiceImpl implements UserServiceInt {
             newUser.setChatId(chatId);
             newUser.setLanguage(Language.English);
             //if else just for test /profile rn
-            if(chatId==642196846){newUser.setPayedAcc(true);}
+            if(chatId==642196846 || chatId==755032378){newUser.setPayedAcc(true);}
             else {newUser.setPayedAcc(false);}
             return userRepository.save(newUser);
         });

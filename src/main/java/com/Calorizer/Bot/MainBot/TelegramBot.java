@@ -4,6 +4,7 @@ import com.Calorizer.Bot.BotConfiguration.BotConfiguration;
 import com.Calorizer.Bot.MainBot.Callback.CallbackHandler;
 import com.Calorizer.Bot.MainBot.Handler.CommandHandler;
 import com.Calorizer.Bot.Service.CalorieCalculationFlowService;
+import com.Calorizer.Bot.Service.ProfileUpdateDataService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,25 +28,30 @@ public class TelegramBot extends TelegramLongPollingBot {
     private final CalorieCalculationFlowService calorieCalculationFlowService;
     private final List<CommandHandler> commandHandlers;
     private final List<CallbackHandler> callbackHandlers;
+    private final ProfileUpdateDataService profileUpdateDataService;
 
     /**
-     * Constructor for dependency injection. Spring automatically injects
-     * all registered {@link CommandHandler} and {@link CallbackHandler} beans into the respective lists.
+     * Constructor for dependency injection.
+     * Spring automatically injects the {@link BotConfiguration} and instances of
+     * all discovered {@link CommandHandler} and {@link CallbackHandler} beans into their respective lists.
+     * It also injects the specific flow services responsible for multi-step interactions.
      *
-     * @param botConfiguration Configuration properties for the bot (name, token).
-     * @param calorieCalculationFlowService Service to manage multi-step calorie input flow.
-     * @param commandHandlers A list of all available command handlers.
-     * @param callbackHandlers A list of all available callback handlers.
+     * @param botConfiguration              Configuration properties for the bot (name, token).
+     * @param calorieCalculationFlowService Service to manage multi-step user input for calorie calculation.
+     * @param commandHandlers               A list of all available {@link CommandHandler} implementations.
+     * @param callbackHandlers              A list of all available {@link CallbackHandler} implementations.
+     * @param profileUpdateDataService      Service to manage multi-step user input for profile data updates.
      */
     public TelegramBot(BotConfiguration botConfiguration,
                        CalorieCalculationFlowService calorieCalculationFlowService,
                        List<CommandHandler> commandHandlers,
-                       List<CallbackHandler> callbackHandlers) {
+                       List<CallbackHandler> callbackHandlers, ProfileUpdateDataService profileUpdateDataService) {
         super(botConfiguration.getBotToken());
         this.botConfiguration = botConfiguration;
         this.calorieCalculationFlowService = calorieCalculationFlowService;
         this.commandHandlers = commandHandlers;
         this.callbackHandlers = callbackHandlers;
+        this.profileUpdateDataService = profileUpdateDataService;
         logger.info("TelegramBot initialized with {} command handlers and {} callback handlers.",
                 commandHandlers.size(), callbackHandlers.size());
     }
@@ -72,10 +78,27 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     /**
-     * This method is called when an update is received from the Telegram Bot API.
-     * It dispatches the update to the appropriate handler based on its type (message, callback query).
+     * This is the primary entry point for all incoming updates from the Telegram Bot API.
+     * It intelligently dispatches the {@link Update} to the appropriate processing logic:
+     * <ol>
+     * <li>If the update contains a text message:
+     * <ul>
+     * <li>Checks if the user is in an active calorie calculation input flow.</li>
+     * <li>Checks if the user is in an active profile update input flow.</li>
+     * <li>If not in a flow, attempts to find a suitable {@link CommandHandler} for the message (if it starts with '/').</li>
+     * <li>If no specific command handler is found or the message is not a command, it's typically handled by a default/unknown command handler.</li>
+     * </ul>
+     * </li>
+     * <li>If the update contains a callback query (from an inline keyboard button):
+     * <ul>
+     * <li>Checks if the callback is related to the profile update service (e.g., attribute selection).</li>
+     * <li>If not, attempts to find a suitable {@link CallbackHandler} for the callback data.</li>
+     * <li>Logs unhandled callback queries.</li>
+     * </ul>
+     * </li>
+     * </ol>
      *
-     * @param update The {@link Update} object received from Telegram.
+     * @param update The {@link Update} object received from Telegram, containing various types of data.
      */
     @Override
     public void onUpdateReceived(Update update) {
@@ -85,6 +108,10 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (calorieCalculationFlowService.isInCalorieInputFlow(chatId)) {
                 calorieCalculationFlowService.handleCalorieInputStep(this, chatId, messageText);
+                return;
+            }
+            if (profileUpdateDataService.isInProfileUpdateFlow(chatId)) {
+                profileUpdateDataService.handleProfileInputStep(this, chatId, messageText);
                 return;
             }
 
@@ -110,9 +137,16 @@ public class TelegramBot extends TelegramLongPollingBot {
                         .ifPresent(handler -> handler.handle(this, update));
             }
 
-        } else if (update.hasCallbackQuery()) {
+        }
+        else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();
             long chatId = update.getCallbackQuery().getMessage().getChatId();
+
+            if (profileUpdateDataService.isInProfileUpdateFlow(chatId) &&
+                    (callbackData.startsWith("UPDATE_") || "UPDATE_PROFILE_DONE".equals(callbackData))) {
+                profileUpdateDataService.handleAttributeSelectionCallback(this, chatId, callbackData);
+                return;
+            }
 
             Optional<CallbackHandler> suitableHandler = callbackHandlers.stream()
                     .filter(handler -> handler.supports(callbackData))
@@ -120,6 +154,7 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             if (suitableHandler.isPresent()) {
                 suitableHandler.get().handle(this, update);
+                 return;
             } else {
                 logger.warn("Received unhandled callback query from user {}: {}", chatId, callbackData);
             }
