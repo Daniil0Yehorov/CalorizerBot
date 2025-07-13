@@ -42,7 +42,7 @@ public class CalorieCalculationFlowService {
         double bodyFatPercent;
         PhysicalActivityLevel activityLevel;
         MainGoal mainGoal;
-        String currentStep = "SEX"; // Начальный шаг
+        String currentStep = "SEX";
 
         public String getCurrentStep() {
             return currentStep;
