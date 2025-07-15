@@ -1,4 +1,4 @@
-package com.Calorizer.Bot.MainBot.Callback;
+package com.Calorizer.Bot.MainBot.CallbackCallback;
 
 import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;

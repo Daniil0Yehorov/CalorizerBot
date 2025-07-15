@@ -1,7 +1,6 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;
-import com.Calorizer.Bot.Service.CalorieCalculationFlowService;
 import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import com.Calorizer.Bot.Service.LocalizationService;
 import com.Calorizer.Bot.Service.MessageSender;
@@ -16,9 +15,10 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKe
 import java.util.List;
 
 /**
- * Handles the '/calculatecalorieforday' command.
- * This handler sends a message to the user outlining terms of use and data safety,
- * along with inline buttons for agreement or disagreement to proceed with calorie calculation.
+ * Handles the '/calculatecalorieforday' command and its localized button equivalents.
+ * This handler is responsible for presenting the user with terms of use and data safety information
+ * before proceeding with calorie calculation. It provides inline buttons for the user to
+ * explicitly agree or disagree with these terms.
  */
 @Component
 public class CalorieAgreementHandler implements CommandHandler {
@@ -32,9 +32,9 @@ public class CalorieAgreementHandler implements CommandHandler {
     /**
      * Constructor for dependency injection. Spring automatically provides instances of the required services.
      *
-     * @param userServiceInt Service for user-related operations.
-     * @param localizationService Service for retrieving localized messages.
-     * @param messageSender Service for sending messages to Telegram.
+     * @param userServiceInt      Service for user-related operations, such as retrieving or creating user profiles.
+     * @param localizationService Service for retrieving localized messages based on the user's language.
+     * @param messageSender       Service for sending messages to Telegram users.
      */
     public CalorieAgreementHandler(UserServiceInt userServiceInt,
                                    LocalizationService localizationService,
@@ -45,15 +45,23 @@ public class CalorieAgreementHandler implements CommandHandler {
     }
 
     /**
-     * Checks if this handler supports the given command text.
-     * It specifically handles the "/calculatecalorieforday" command.
+     * Checks if this handler supports the given command text or its localized button equivalent.
+     * It specifically handles the "/calculatecalorieforday" command and its translations
+     * found in localization files for various languages.
      *
-     * @param commandText The text of the command received from the user.
-     * @return true if the command text is "/calculatecalorieforday", false otherwise.
+     * @param commandText The incoming command text or button text from the user.
+     * @return {@code true} if the command text matches "/calculatecalorieforday" or its localized equivalents,
+     * {@code false} otherwise.
      */
     @Override
     public boolean supports(String commandText) {
-        return "/calculatecalorieforday".equals(commandText);
+        if ("/calculatecalorieforday".equals(commandText)) {
+            return true;
+        }
+        return localizationService.getTranslation(Language.English, "button.command.calculatecalorieforday").equals(commandText) ||
+                localizationService.getTranslation(Language.Russian, "button.command.calculatecalorieforday").equals(commandText) ||
+                localizationService.getTranslation(Language.Ukrainian, "button.command.calculatecalorieforday").equals(commandText) ||
+                localizationService.getTranslation(Language.German, "button.command.calculatecalorieforday").equals(commandText);
     }
 
     /**

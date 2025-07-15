@@ -1,5 +1,6 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 
+import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;
 import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import com.Calorizer.Bot.Service.LocalizationService;
@@ -17,10 +18,9 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Handles the "/profile" command received from users.
+ * Handles the "/profile" command and its localized button equivalents received from users.
  * This handler is responsible for retrieving and displaying the user's profile information.
- * It also manages access restrictions based on the user's payment status and
- * provides an option to update the profile for paid users.
+ * It also manages access to profile update options based on the user's payment status.
  */
 @Component
 public class ProfileHandler implements CommandHandler {
@@ -45,15 +45,22 @@ public class ProfileHandler implements CommandHandler {
     }
 
     /**
-     * Checks if this handler supports the given command text.
-     * It specifically handles the "/profile" command.
+     * Checks if this handler supports the given command text or localized button text.
+     * It specifically handles the "/profile" command and its translations found in localization files.
      *
-     * @param commandText The text of the command received from the user.
-     * @return true if the command text is "/profile", false otherwise.
+     * @param commandText The incoming command text or button text from the user.
+     * @return {@code true} if the command text matches "/profile" or its localized equivalents,
+     * {@code false} otherwise.
      */
     @Override
     public boolean supports(String commandText) {
-        return "/profile".equals(commandText);
+        if ("/profile".equals(commandText)) {
+            return true;
+        }
+        return localizationService.getTranslation(Language.English, "button.command.profile").equals(commandText) ||
+                localizationService.getTranslation(Language.Russian, "button.command.profile").equals(commandText) ||
+                localizationService.getTranslation(Language.Ukrainian, "button.command.profile").equals(commandText) ||
+                localizationService.getTranslation(Language.German, "button.command.profile").equals(commandText);
     }
 
     /**

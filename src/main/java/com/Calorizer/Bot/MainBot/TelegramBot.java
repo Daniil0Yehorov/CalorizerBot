@@ -1,8 +1,8 @@
 package com.Calorizer.Bot.MainBot;
 
 import com.Calorizer.Bot.BotConfiguration.BotConfiguration;
-import com.Calorizer.Bot.MainBot.Callback.CallbackHandler;
-import com.Calorizer.Bot.MainBot.Handler.CommandHandler;
+import com.Calorizer.Bot.MainBot.CallbackCallback.CallbackHandler;
+import com.Calorizer.Bot.MainBot.CommandHandler.CommandHandler;
 import com.Calorizer.Bot.Service.CalorieCalculationFlowService;
 import com.Calorizer.Bot.Service.ProfileUpdateDataService;
 import org.slf4j.Logger;
@@ -115,7 +115,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                 return;
             }
 
-            if (messageText.startsWith("/")) {
                 Optional<CommandHandler> suitableHandler = commandHandlers.stream()
                         .filter(handler -> handler.supports(messageText))
                         .findFirst();
@@ -128,15 +127,6 @@ public class TelegramBot extends TelegramLongPollingBot {
                             .findFirst()
                             .ifPresent(handler -> handler.handle(this, update));
                 }
-            }
-            else {
-                logger.warn("Received non-command, non-flow text from user {}: {}", chatId, messageText);
-                commandHandlers.stream()
-                        .filter(handler -> handler.getClass().getSimpleName().equals("UnknownCommandHandler"))
-                        .findFirst()
-                        .ifPresent(handler -> handler.handle(this, update));
-            }
-
         }
         else if (update.hasCallbackQuery()) {
             String callbackData = update.getCallbackQuery().getData();

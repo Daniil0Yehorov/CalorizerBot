@@ -1,4 +1,4 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 
 
 import org.telegram.telegrambots.meta.api.objects.Update;

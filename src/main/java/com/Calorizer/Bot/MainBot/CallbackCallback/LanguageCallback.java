@@ -1,5 +1,6 @@
-package com.Calorizer.Bot.MainBot.Callback;
+package com.Calorizer.Bot.MainBot.CallbackCallback;
 
+import com.Calorizer.Bot.MainBot.KeyboardFactory;
 import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;
 import com.Calorizer.Bot.Service.Interface.UserServiceInt;
@@ -9,12 +10,14 @@ import com.Calorizer.Bot.Service.TelegramBotCommandsUpdater;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.api.objects.Update;
 
 /**
  * Handles callback queries for language selection (e.g., "SET_LANGUAGE_English").
- * It updates the user's language preference and refreshes bot commands accordingly.
+ * It updates the user's language preference, refreshes bot commands,
+ * and updates the main menu keyboard to reflect the new language.
  */
 @Component
 public class LanguageCallback implements CallbackHandler {
@@ -25,6 +28,7 @@ public class LanguageCallback implements CallbackHandler {
     private final LocalizationService localizationService;
     private final MessageSender messageSender;
     private final TelegramBotCommandsUpdater commandsUpdater;
+    private  final KeyboardFactory keyboardFactory;
 
     /**
      * Constructor for dependency injection.
@@ -33,15 +37,17 @@ public class LanguageCallback implements CallbackHandler {
      * @param localizationService Service for obtaining localized strings.
      * @param messageSender Service for sending messages to the user.
      * @param commandsUpdater Service for updating bot commands in Telegram UI.
+     * @param keyboardFactory Factory for creating custom Telegram keyboards, specifically the main menu.
      */
     public LanguageCallback(UserServiceInt userServiceInt,
                             LocalizationService localizationService,
                             MessageSender messageSender,
-                            TelegramBotCommandsUpdater commandsUpdater) {
+                            TelegramBotCommandsUpdater commandsUpdater,KeyboardFactory keyboardFactory) {
         this.userServiceInt = userServiceInt;
         this.localizationService = localizationService;
         this.messageSender = messageSender;
         this.commandsUpdater = commandsUpdater;
+        this.keyboardFactory=keyboardFactory;
     }
 
     /**
@@ -59,8 +65,8 @@ public class LanguageCallback implements CallbackHandler {
     /**
      * Processes the language selection callback.
      * Extracts the new language from callback data, updates user's language,
-     * refreshes bot commands, and sends a confirmation message.
-     * Handles cases where an unsupported language code is received.
+     * refreshes bot commands, and sends a confirmation message along with the updated main keyboard.
+     * Handles cases where an unsupported language code is received, sending an appropriate error message.
      *
      * @param absSender The {@link AbsSender} instance for sending Telegram responses.
      * @param update The {@link Update} object containing the callback query.
@@ -84,12 +90,15 @@ public class LanguageCallback implements CallbackHandler {
     }
 
     /**
-     * Updates the user's language preference in the database and refreshes bot commands.
+     * Updates the user's language preference in the database, refreshes bot commands
+     * in the Telegram UI, and sends a confirmation message with the main menu keyboard
+     * updated to the new language.
      *
-     * @param absSender The {@link AbsSender} instance.
-     * @param chatId The chat ID of the user.
-     * @param newLanguage The newly selected {@link Language}.
-     * @param oldLanguage The user's previous {@link Language} (used for the confirmation message).
+     * @param absSender The {@link AbsSender} instance for sending Telegram responses.
+     * @param chatId The chat ID of the user whose language is being updated.
+     * @param newLanguage The newly selected {@link Language} to set for the user.
+     * @param oldLanguage The user's previous {@link Language} (primarily for logging or if a specific "reverted" message is needed,
+     * but the confirmation will be in the new language).
      */
     private void updateUserLanguage(AbsSender absSender, Long chatId, Language newLanguage, Language oldLanguage) {
         User user = userServiceInt.getOrCreateUser(chatId);
@@ -113,7 +122,10 @@ public class LanguageCallback implements CallbackHandler {
                 confirmation = localizationService.getTranslation(oldLanguage, "language.set.english");
                 break;
         }
-
-        messageSender.sendMessage(absSender, chatId, confirmation);
+        SendMessage replyMessage = new SendMessage();
+        replyMessage.setChatId(String.valueOf(chatId));
+        replyMessage.setText(confirmation);
+        replyMessage.setReplyMarkup(keyboardFactory.createMainMenuKeyboard(newLanguage));
+        messageSender.sendMessage(absSender,replyMessage);
     }
 }

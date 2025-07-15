@@ -1,5 +1,6 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 
+import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.Enum.MainGoal;
 import com.Calorizer.Bot.Model.User;
 import com.Calorizer.Bot.Model.UserPhysicalData;
@@ -49,14 +50,23 @@ public class StaticRecommendationHandler implements CommandHandler{
     }
 
     /**
-     * Determines if this handler can process the given command text.
+     * Determines if this handler can process the given command text or localized button text.
+     * It specifically supports the "/recommendation_static" command and its translations
+     * found in localization files for various languages.
      *
-     * @param commandText The incoming command text from the user.
-     * @return {@code true} if the command text is exactly "/recommendation_static", {@code false} otherwise.
+     * @param commandText The incoming command text or button text from the user.
+     * @return {@code true} if the command text matches "/recommendation_static" or its localized equivalents,
+     * {@code false} otherwise.
      */
     @Override
     public boolean supports(String commandText) {
-        return "/recommendation_static".equals(commandText);
+        if ("/recommendation_static".equals(commandText)) {
+            return true;
+        }
+        return localizationService.getTranslation(Language.English, "button.command.recommendation_static").equals(commandText) ||
+                localizationService.getTranslation(Language.Russian, "button.command.recommendation_static").equals(commandText) ||
+                localizationService.getTranslation(Language.Ukrainian, "button.command.recommendation_static").equals(commandText) ||
+                localizationService.getTranslation(Language.German, "button.command.recommendation_static").equals(commandText);
     }
 
     /**

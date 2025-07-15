@@ -1,4 +1,4 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 
 import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;

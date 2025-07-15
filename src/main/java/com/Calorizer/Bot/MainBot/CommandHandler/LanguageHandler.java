@@ -1,7 +1,6 @@
-package com.Calorizer.Bot.MainBot.Handler;
+package com.Calorizer.Bot.MainBot.CommandHandler;
 
 import com.Calorizer.Bot.Model.Enum.Language;
-import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import com.Calorizer.Bot.Service.LocalizationService;
 import com.Calorizer.Bot.Service.MessageSender;
 import org.slf4j.Logger;
@@ -18,7 +17,7 @@ import java.util.List;
 /**
  * Handles the '/changelanguage' command.
  * This handler sends a message to the user with an inline keyboard for language selection.
- * The actual language update logic is handled by {@link com.Calorizer.Bot.MainBot.Callback.LanguageCallback}.
+ * The actual language update logic is handled by {@link com.Calorizer.Bot.MainBot.CallbackCallback.LanguageCallback}.
  */
 @Component
 public class LanguageHandler implements CommandHandler {
@@ -41,15 +40,23 @@ public class LanguageHandler implements CommandHandler {
     }
 
     /**
-     * Checks if this handler supports the given command text.
-     * It specifically handles the "/changelanguage" command.
+     * Checks if this handler supports the given command text or its localized button equivalent.
+     * It specifically handles the "/changelanguage" command as well as the translated texts
+     * for the "Change Language" button across various supported languages.
      *
-     * @param commandText The text of the command received from the user.
-     * @return true if the command text is "/changelanguage", false otherwise.
+     * @param commandText The text of the command or the button text received from the user.
+     * @return {@code true} if the command text matches "/changelanguage" or any of its localized button texts,
+     * {@code false} otherwise.
      */
     @Override
     public boolean supports(String commandText) {
-        return "/changelanguage".equals(commandText);
+        if ("/changelanguage".equals(commandText)) {
+            return true;
+        }
+        return localizationService.getTranslation(Language.English, "button.command.changelanguage").equals(commandText) ||
+                localizationService.getTranslation(Language.Russian, "button.command.changelanguage").equals(commandText) ||
+                localizationService.getTranslation(Language.Ukrainian, "button.command.changelanguage").equals(commandText) ||
+                localizationService.getTranslation(Language.German, "button.command.changelanguage").equals(commandText);
     }
 
     /**
