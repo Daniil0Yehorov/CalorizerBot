@@ -5,6 +5,7 @@ import com.Calorizer.Bot.Model.Enum.MainGoal;
 import com.Calorizer.Bot.Model.Enum.PhysicalActivityLevel;
 import com.Calorizer.Bot.Model.Enum.Sex;
 import com.Calorizer.Bot.Model.User;
+import com.Calorizer.Bot.Model.UserPhysicalData;
 import com.Calorizer.Bot.Service.Interface.UserServiceInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,7 +18,8 @@ import java.util.Map;
 /**
  * Service responsible for managing the multi-step calorie calculation input flow for users.
  * It guides the user through a series of questions (sex, height, weight, etc.)
- * and stores their input state. Once all data is collected, it triggers the calorie calculation report.
+ * and stores their input state temporarily. Once all required data is collected,
+ * it either saves it to the user's profile (if applicable) and/or triggers the calorie calculation report.
  */
 @Service
 public class CalorieCalculationFlowService {
@@ -89,9 +91,9 @@ public class CalorieCalculationFlowService {
     }
 
     /**
-     * Handles user input during the calorie calculation flow.
+     * Handles user input during the multi-step calorie calculation flow.
      * Based on the current step, it validates the input, updates the state,
-     * and sends the next question or the final report.
+     * and sends the next question or the final calorie report.
      *
      * @param absSender The {@link AbsSender} instance for sending Telegram responses.
      * @param chatId The Telegram chat ID of the user.
@@ -185,10 +187,61 @@ public class CalorieCalculationFlowService {
                     return;
                 }
                 state.mainGoal = goal;
-                sendCalorieReport(absSender, chatId, state, lang);
+
+                if(user.isPayedAcc()){
+                    UserPhysicalData upd = user.getUPD();
+
+                    if (upd == null) {
+                        upd = new UserPhysicalData();
+                        upd.setUser(user);
+                        user.setUPD(upd);
+                        logger.info("Created new UserPhysicalData for user {}.", chatId);
+                    } else {
+                        logger.info("Updating existing UserPhysicalData for user {}.", chatId);
+                    }
+                    upd.setMaingoal(state.mainGoal);
+                    upd.setPhysicalActivityLevel(state.activityLevel);
+                    upd.setSex(state.sex);
+                    upd.setWeight(state.weight);
+                    upd.setHeight(state.height);
+                    upd.setAge(state.age);
+                    upd.setBodyFatPercent(state.bodyFatPercent);
+
+                    userServiceInt.save(user);
+                    logger.info("User {}'s physical profile data saved/updated successfully.", chatId);
+                } else {
+                    logger.info("User {} is not a paid account, physical profile data will not be saved.", chatId);
+                }
+
+                sendCalorieReport(absSender, chatId, state.sex, state.weight, state.height, state.age,
+                        state.bodyFatPercent, state.activityLevel, state.mainGoal, lang);
                 userStates.remove(chatId);
                 logger.info("Calorie input flow completed for user {}.", chatId);
             }
+        }
+    }
+
+    /**
+     * Initiates calorie calculation directly from existing user profile data.
+     * This method is called when the user chooses to use their saved profile for calculation.
+     *
+     * @param absSender The {@link AbsSender} instance.
+     * @param chatId The user's chat ID.
+     * @param upd The user's physical data from their profile.
+     */
+    public void calculateFromProfile(AbsSender absSender, Long chatId, UserPhysicalData upd) {
+        User user = userServiceInt.getOrCreateUser(chatId);
+        Language lang = user.getLanguage();
+
+        if (userServiceInt.isUserProfileComplete(user)) {
+            sendCalorieReport(absSender, chatId,
+                    upd.getSex(), upd.getWeight(), upd.getHeight(), upd.getAge(),
+                    upd.getBodyFatPercent(), upd.getPhysicalActivityLevel(), upd.getMaingoal(), lang);
+            logger.info("Generating calorie report from profile data for user {}.", chatId);
+        } else {
+             messageSender.sendMessage(absSender, chatId, localizationService.getTranslation(lang, "error.profile_not_complete_for_auto_calc_manual_prompt"));
+            startCalorieInputFlow(absSender, chatId);
+            logger.warn("Attempted to calculate from an incomplete profile for user {}. Initiating manual input.", chatId);
         }
     }
 
@@ -260,24 +313,50 @@ public class CalorieCalculationFlowService {
             default -> null;
         };
     }
-
     /**
      * Calculates the calorie report using {@link FullReportByMethods} and sends it to the user.
+     * This overloaded method accepts a {@link CalorieInputState} object.
      *
      * @param absSender The {@link AbsSender} instance.
      * @param chatId The user's chat ID.
      * @param state The current {@link CalorieInputState} containing all collected data.
      * @param lang The user's preferred language.
+     * @deprecated This method is deprecated. Use the overloaded {@link #sendCalorieReport(AbsSender, Long, Sex, double, double, int, double, PhysicalActivityLevel, MainGoal, Language)} instead for clearer parameter passing.
      */
+    @Deprecated
     private void sendCalorieReport(AbsSender absSender, Long chatId, CalorieInputState state, Language lang) {
+        logger.warn("Using deprecated sendCalorieReport method for user {}. Please update to the explicit parameter version.", chatId);
+        sendCalorieReport(absSender, chatId,
+                state.sex, state.weight, state.height, state.age,
+                state.bodyFatPercent, state.activityLevel, state.mainGoal, lang);
+    }
+    /**
+     * Overloaded method to calculate the calorie report using {@link FullReportByMethods} and send it to the user.
+     * This method accepts individual physical data parameters.
+     *
+     * @param absSender The {@link AbsSender} instance.
+     * @param chatId The user's chat ID.
+     * @param sex The user's sex.
+     * @param weight The user's weight.
+     * @param height The user's height.
+     * @param age The user's age.
+     * @param bodyFatPercent The user's body fat percentage.
+     * @param activityLevel The user's physical activity level.
+     * @param mainGoal The user's main goal.
+     * @param lang The user's preferred language.
+     */
+    private void sendCalorieReport(AbsSender absSender, Long chatId,
+                                   Sex sex, double weight, double height, int age,
+                                   double bodyFatPercent, PhysicalActivityLevel activityLevel, MainGoal mainGoal, Language lang) {
+        logger.info("Generating calorie report for user {} with collected data.", chatId);
         FullReportByMethods report = new FullReportByMethods(
-                state.sex,
-                state.weight,
-                state.height,
-                state.age,
-                state.bodyFatPercent,
-                state.activityLevel,
-                state.mainGoal
+                sex,
+                weight,
+                height,
+                age,
+                bodyFatPercent,
+                activityLevel,
+                mainGoal
         );
 
         StringBuilder sb = new StringBuilder();

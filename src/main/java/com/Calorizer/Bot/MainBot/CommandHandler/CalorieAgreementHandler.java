@@ -66,7 +66,8 @@ public class CalorieAgreementHandler implements CommandHandler {
 
     /**
      * Handles the '/calculatecalorieforday' command.
-     * It initiates the process by sending the calorie agreement terms to the user.
+     * It initiates the process by sending the calorie agreement terms to the user,
+     * prompting them to agree or disagree before proceeding with calorie calculation.
      *
      * @param absSender The {@link AbsSender} instance for sending Telegram responses.
      * @param update The {@link Update} object containing the command message.
@@ -79,7 +80,8 @@ public class CalorieAgreementHandler implements CommandHandler {
     }
 
     /**
-     * Constructs and sends the message containing terms of use and agreement buttons.
+     * Constructs and sends a message to the user containing the terms of use and data safety information,
+     * along with inline buttons for agreement or disagreement.
      *
      * @param absSender The {@link AbsSender} instance.
      * @param chatId The chat ID of the user to send the message to.
@@ -112,4 +114,5 @@ public class CalorieAgreementHandler implements CommandHandler {
 
         messageSender.sendMessage(absSender, message);
     }
+
 }

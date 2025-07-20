@@ -42,7 +42,13 @@ public interface UserServiceInt {
      * @return The saved {@link UserPhysicalData} object.
      */
     UserPhysicalData save(UserPhysicalData userPhysicalData);
-
-    //UserPhysicalData update(**);
-
+    /**
+     * Checks if the user's physical profile data is complete.
+     * A profile is considered complete if all essential fields in {@link UserPhysicalData}
+     * are non-null and have valid (non-zero or non-negative as appropriate) values.
+     *
+     * @param user The {@link User} object whose profile completeness is to be checked.
+     * @return True if the user's physical profile data is complete, false otherwise.
+     */
+    boolean isUserProfileComplete(User user);
 }

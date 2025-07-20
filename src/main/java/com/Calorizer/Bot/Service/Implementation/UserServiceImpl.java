@@ -84,13 +84,13 @@ public class UserServiceImpl implements UserServiceInt {
             userPhysicalData.setUser(user);
             user.setUPD(userPhysicalData);
 
-            userPhysicalData.setSex(Sex.MALE);
-            userPhysicalData.setPhysicalActivityLevel(PhysicalActivityLevel.ACTIVE);
-            userPhysicalData.setWeight(75.5);
-            userPhysicalData.setHeight(180.0);
-            userPhysicalData.setAge(30);
-            userPhysicalData.setMaingoal(MainGoal.WEIGHT_LOSS);
-            userPhysicalData.setBodyFatPercent(15.3);
+            //userPhysicalData.setSex(Sex.MALE);
+            //userPhysicalData.setPhysicalActivityLevel(PhysicalActivityLevel.ACTIVE);
+            //userPhysicalData.setWeight(75.5);
+            //userPhysicalData.setHeight(180.0);
+            //userPhysicalData.setAge(30);
+            //userPhysicalData.setMaingoal(MainGoal.WEIGHT_LOSS);
+            //userPhysicalData.setBodyFatPercent(15.3);
 
             userPhysicalDataRepository.save(userPhysicalData);
             String greeting = localizationService.getTranslation(user.getLanguage(), "profile.greeting_new");
@@ -122,6 +122,21 @@ public class UserServiceImpl implements UserServiceInt {
     @Override
     public UserPhysicalData save(UserPhysicalData  data) {
         return userPhysicalDataRepository.save(data);
+    }
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean isUserProfileComplete(User user) {
+        UserPhysicalData upd = user.getUPD();
+        return upd != null &&
+                upd.getSex() != null &&
+                upd.getWeight() > 0 &&
+                upd.getHeight() > 0 &&
+                upd.getAge() > 0 &&
+                upd.getPhysicalActivityLevel() != null &&
+                upd.getMaingoal() != null && upd.getBodyFatPercent() >= 0;
+
     }
 
     /**
