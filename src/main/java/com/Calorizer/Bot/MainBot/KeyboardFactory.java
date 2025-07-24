@@ -59,6 +59,7 @@ public class KeyboardFactory {
 
         KeyboardRow row3 = new KeyboardRow();
         row3.add(new KeyboardButton(localizationService.getTranslation(lang, "button.command.changelanguage")));
+        row3.add(new KeyboardButton(localizationService.getTranslation(lang, "button.command.allergies")));
         keyboard.add(row3);
 
         replyKeyboardMarkup.setKeyboard(keyboard);

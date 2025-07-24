@@ -16,6 +16,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Service responsible for generating nutrition recommendations using the Gemini AI API.
@@ -62,12 +63,13 @@ public class NutritionRecommendationService {
     /**
      * Builds the comprehensive prompt string to be sent to the Gemini AI.
      * The prompt includes user's calculated calorie needs (from various methods),
-     * their detailed physical profile, additional requirements, and specific instructions
+     * their detailed physical profile, **a list of specified allergens**,
+     * additional requirements, and specific instructions
      * for Gemini regarding the output format and task. The prompt is localized to the user's language.
      *
-     * @param user The {@link User} object containing physical data and language preference.
+     * @param user The {@link User} object containing physical data, **allergen information**, and language preference.
      * @param duration A string indicating the duration for which the recommendation is requested (e.g., "for a week").
-     * @param additionalRequirements Any specific additional requirements provided by the user.
+     * @param additionalRequirements Any specific additional requirements provided by the user (e.g., dietary preferences not covered by allergens).
      * @return A formatted string representing the prompt for the Gemini AI.
      */
     private String buildPrompt(User user, String duration, String additionalRequirements) {
@@ -149,6 +151,16 @@ public class NutritionRecommendationService {
         }
         prompt.append("\n");
 
+        if (upd.getAllergens() != null && !upd.getAllergens().isEmpty()) {
+            String allergensList = upd.getAllergens().stream()
+                    .map(a -> localizationService.getTranslation(userLanguage, "allergen." + a.name().toLowerCase()))
+                    .collect(Collectors.joining(", "));
+
+            prompt.append(localizationService.getTranslation(userLanguage, "recommendation.prompt.allergies_intro"))
+                    .append(" ")
+                    .append(allergensList)
+                    .append(".\n\n");
+        }
         if (additionalRequirements != null && !additionalRequirements.trim().isEmpty()) {
             prompt.append(additionalReqLabel).append(": ").append(additionalRequirements).append("\n\n");
         }

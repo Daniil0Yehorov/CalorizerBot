@@ -1,13 +1,17 @@
 package com.Calorizer.Bot.Model;
 
+import com.Calorizer.Bot.Model.Enum.Allergen;
 import com.Calorizer.Bot.Model.Enum.MainGoal;
 import com.Calorizer.Bot.Model.Enum.PhysicalActivityLevel;
 import com.Calorizer.Bot.Model.Enum.Sex;
+import com.Calorizer.Bot.Service.AllergenListConverter;
 import jakarta.persistence.Entity;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import jakarta.persistence.*;
+
+import java.util.List;
 
 /**
  * Represents the physical data (sex, weight, height, age, activity level, body fat, main goal)
@@ -80,4 +84,13 @@ public class UserPhysicalData {
      */
     private double bodyFatPercent;
 
+    /**
+     * A list of allergens the user is sensitive to. Stored as a comma-separated string
+     * in the database via the {@link AllergenListConverter}. This information is crucial
+     * for generating personalized meal recommendations that exclude these products.
+     * Initialized to an empty ArrayList to prevent NullPointerExceptions when accessed.
+     */
+    @Column(name = "allergens")
+    @Convert(converter = AllergenListConverter.class)
+    private List<Allergen> allergens;
 }

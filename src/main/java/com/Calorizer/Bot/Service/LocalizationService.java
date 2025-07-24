@@ -42,7 +42,8 @@ public class LocalizationService {
                     new BotCommand("/changelanguage", getTranslation(lang, "command.changelanguage.description")),
                     new BotCommand("/calculatecalorieforday", getTranslation(lang, "command.calculatecalorieforday.description")),
                     new BotCommand("/recommendation_static", getTranslation(lang, "command.recommendation_static.description")),
-                    new BotCommand("/recommendation_ai", getTranslation(lang, "command.recommendation_ai.description"))
+                    new BotCommand("/recommendation_ai", getTranslation(lang, "command.recommendation_ai.description")),
+                    new BotCommand("/allergy", getTranslation(lang, "command.allergies.description"))
                     );
 
             localizedCommands.put(lang, commands);

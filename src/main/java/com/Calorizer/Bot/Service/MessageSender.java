@@ -3,6 +3,7 @@ package com.Calorizer.Bot.Service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.bots.AbsSender;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
@@ -111,5 +112,21 @@ public class MessageSender {
             currentPos = endIndex;
         }
         return parts;
+    }
+    /**
+     * Edits a text message in Telegram.
+     * This method is used to update the content or keyboard of an already sent message.
+     * It handles TelegramApiException internally.
+     *
+     * @param absSender The AbsSender instance, which is the bot itself.
+     * @param editMessage The EditMessageText object configured with the new message state.
+     */
+    public void editMessage(AbsSender absSender, EditMessageText editMessage) {
+        try {
+            absSender.execute(editMessage);
+        } catch (TelegramApiException e) {
+            String chatId = editMessage.getChatId() != null ? editMessage.getChatId() : "N/A";
+            logger.error("Error editing message to chat {}: {}", chatId, e.getMessage());
+        }
     }
 }
