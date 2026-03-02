@@ -3,20 +3,18 @@ package com.Calorizer.Bot.Service;
 import com.Calorizer.Bot.Model.Enum.Language;
 import com.Calorizer.Bot.Model.User;
 import com.Calorizer.Bot.Model.UserPhysicalData;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.PropertySource;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
+import com.google.genai.Client;
+import com.google.genai.errors.ApiException;
+import com.google.genai.types.GenerateContentResponse;
 
 /**
  * Service responsible for generating nutrition recommendations using the Gemini AI API.
@@ -30,14 +28,11 @@ public class NutritionRecommendationService {
 
     private static final Logger log = LoggerFactory.getLogger(NutritionRecommendationService.class);
 
-    private final WebClient webClient;
+    private final Client genAiClient;
     private final LocalizationService localizationService;
 
-    @Value("${ai.url}")
-    private String geminiApiFullUrl;
-
-    @Value("${gemini.api.key}")
-    private String geminiApiKey;
+    @Value("${ai.model_id}")
+    private String MODEL_ID;
 
     // Map to store the last request time for each user to implement a cooldown.
     // ConcurrentHashMap is used for thread safety in a multi-user environment.
@@ -45,19 +40,18 @@ public class NutritionRecommendationService {
     private final Map<Long, Long> lastRequestTime = new ConcurrentHashMap<>();
     private static final long REQUEST_COOLDOWN_MS = 30 * 1000;
 
-    private final ObjectMapper objectMapper;
-
     /**
      * Constructs a new NutritionRecommendationService.
-     * Dependencies are injected by Spring.
      *
-     * @param webClientBuilder Builder for creating a WebClient instance.
      * @param localizationService Service for retrieving localized messages.
+     * @param apiKey The API key for Google Gemini, injected from application properties.
      */
-    public NutritionRecommendationService(WebClient.Builder webClientBuilder, LocalizationService localizationService) {
-        this.webClient = webClientBuilder.build();
+    public NutritionRecommendationService(LocalizationService localizationService,
+                                          @Value("${gemini.api.key}") String apiKey) {
         this.localizationService = localizationService;
-        this.objectMapper = new ObjectMapper();
+        this.genAiClient = Client.builder()
+                .apiKey(apiKey)
+                .build();
     }
 
     /**
@@ -202,60 +196,73 @@ public class NutritionRecommendationService {
             return Mono.just(cooldownMessage.replace("{0}", String.valueOf(remainingSeconds)));
         }
 
-         UserPhysicalData upd = user.getUPD();
-        if (upd == null || upd.getMaingoal() == null || upd.getSex() == null ||
-                upd.getPhysicalActivityLevel() == null ||
-                upd.getAge() == 0 ||
-                upd.getHeight() == 0 ||
-                upd.getWeight() == 0.0) {
-
-             return Mono.just(localizationService.getTranslation(userLanguage, "error.profile_not_complete_for_ai_recommendations"));
+        UserPhysicalData upd = user.getUPD();
+        if (isProfileIncomplete(upd)) {
+            return Mono.just(localizationService.getTranslation(userLanguage, "error.profile_not_complete_for_ai_recommendations"));
         }
 
         lastRequestTime.put(user.getChatId(), currentTime);
 
-         String prompt = buildPrompt(user, duration, additionalRequirements);
+        String prompt = buildPrompt(user, duration, additionalRequirements);
 
         log.info("Sending prompt to Gemini for user {}: {}", user.getChatId(), prompt);
 
-        Map<String, Object> requestBody = new HashMap<>();
-        Map<String, Object> part = new HashMap<>();
-        part.put("text", prompt);
-        Map<String, Object> content = new HashMap<>();
-        content.put("parts", new Object[]{part});
-        content.put("role", "user");
+        return Mono.fromCallable(() -> {
+            try {
+                log.info("Requesting Gemini (SDK) for user {}", user.getChatId());
+                GenerateContentResponse response = genAiClient.models.generateContent(
+                        MODEL_ID,
+                        prompt
+                        , null
+                );
 
-        requestBody.put("contents", new Object[]{content});
+                var candidates = response.candidates().get();
 
-        return webClient.post()
-                .uri(geminiApiFullUrl)
-                .header("X-goog-api-key", geminiApiKey)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .map(response -> {
-                    try {
-                        JsonNode root = objectMapper.readTree(response);
-                         JsonNode textNode = root.path("candidates").get(0).path("content").path("parts").get(0).path("text");
-                        if (textNode != null) {
-                            return textNode.asText();
-                        } else {
-                             log.error("Gemini response did not contain expected text content for user {}. Full response: {}", user.getChatId(), response);
-                            return localizationService.getTranslation(userLanguage, "error.ai_generation_failed");
-                        }
-                    } catch (Exception e) {
-                        log.error("Failed to parse Gemini response for user {}. Response: {}", user.getChatId(), response, e);
+                if (candidates == null || candidates.isEmpty()) {
+                    log.warn("Gemini blocked the request or returned no candidates for user {}. Check safety settings.",
+                            user.getChatId());
+                    return localizationService.getTranslation(userLanguage, "error.ai_generation_failed");
+                }
+
+                var firstCandidate = candidates.getFirst();
+
+                if (firstCandidate.finishReason().isPresent()) {
+                    String reason = firstCandidate.finishReason().get().toString();
+
+                    if (!reason.equalsIgnoreCase("STOP")) {
+                        log.error("Generation stopped prematurely. Reason: {}", reason);
                         return localizationService.getTranslation(userLanguage, "error.ai_generation_failed");
                     }
-                })
-                 .onErrorResume(WebClientResponseException.class, ex -> {
-                    log.error("WebClient error during Gemini API call for user {} (status {}): {}. Response body: {}",
-                            user.getChatId(), ex.getStatusCode(), ex.getMessage(), ex.getResponseBodyAsString(), ex);
-                    return Mono.just(localizationService.getTranslation(userLanguage, "error.ai_communication_error"));
-                })
-                 .onErrorResume(Exception.class, ex -> {
-                    log.error("An unexpected error occurred during Gemini API call for user {}: {}", user.getChatId(), ex.getMessage(), ex);
-                    return Mono.just(localizationService.getTranslation(userLanguage, "error.generic"));
-                });
+                }
+
+                String resultText = response.text();
+                if (resultText == null || resultText.isBlank()) {
+                    throw new RuntimeException("Gemini returned empty text");
+                }
+
+                return resultText;
+
+            } catch (ApiException e) {
+                log.error("Gemini API Exception for user {}: {}", user.getChatId(), e.getMessage());
+                return localizationService.getTranslation(userLanguage, "error.ai_communication_error");
+            } catch (Exception e) {
+                log.error("Unexpected error during Gemini call for user {}: ", user.getChatId(), e);
+                return localizationService.getTranslation(userLanguage, "error.generic");
+            }
+        }).subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic());
+    }
+
+    /**
+     * Checks if the user's physical profile is complete enough for AI analysis.
+     *
+     * @param upd The {@link UserPhysicalData} to validate.
+     * @return true if any required field is missing or zero.
+     */
+    private boolean isProfileIncomplete(UserPhysicalData upd) {
+        return upd == null || upd.getMaingoal() == null || upd.getSex() == null ||
+                upd.getPhysicalActivityLevel() == null ||
+                upd.getAge() == 0 ||
+                upd.getHeight() == 0 ||
+                upd.getWeight() == 0.0;
     }
 }
