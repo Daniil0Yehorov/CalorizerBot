@@ -1,0 +1,15 @@
+# Database Settings
+DB_NAME=*******
+DB_USER=*******
+DB_PASSWORD=*******
+
+# Bot Settings
+BOT_TOKEN=dads232af:dadadasdag223
+BOT_NAME=CalorizerBot
+
+# External APIs
+GEMINI_API_KEY=AazaSyDSxadads23DAL-nKbgbPpadasdfwaWfaF123AsdaCNZds8ysy_sdg
+AI_MODEL_ID=gemini-3-flash-preview
+
+# Server Settings
+APP_PORT=8081

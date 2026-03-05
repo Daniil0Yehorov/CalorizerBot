@@ -17,8 +17,6 @@ import org.telegram.telegrambots.meta.bots.AbsSender;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.Map;
 
 /**
  * Handles the "/recommendation_ai" command and subsequent callback queries for AI-generated nutrition recommendations.
@@ -37,8 +35,6 @@ public class AiRecommendationHandler implements CommandHandler, CallbackHandler 
     private final MessageSender messageSender;
 
     private static final String AI_RECOMMENDATION_CALLBACK_PREFIX = "AI_REC_";
-
-    private final Map<Long, String> userStates = new ConcurrentHashMap<>();
 
     /**
      * Constructor for dependency injection.
