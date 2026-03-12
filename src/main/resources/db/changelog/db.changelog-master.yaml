@@ -1,0 +1,5 @@
+databaseChangeLog:
+  - include:
+      file: db/changelog/changeset/01-schema.sql
+  - include:
+      file: db/changelog/changeset/02-test-attribute.sql

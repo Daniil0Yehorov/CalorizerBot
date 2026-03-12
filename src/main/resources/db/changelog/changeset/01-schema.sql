@@ -1,13 +1,6 @@
-USE `calorizer_db`;
+--liquibase formatted sql
 
-SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS `user_physical_data`;
-DROP TABLE IF EXISTS `user`;
-SET FOREIGN_KEY_CHECKS = 1;
-
--- -----------------------------------------------------
--- Table `user`
--- -----------------------------------------------------
+--changeset DaniilYehorov::20260312-01
 CREATE TABLE IF NOT EXISTS `user` (
     `chat_id` BIGINT NOT NULL,
     `payed_acc` TINYINT(1) NOT NULL DEFAULT 0,
@@ -16,9 +9,7 @@ CREATE TABLE IF NOT EXISTS `user` (
     UNIQUE INDEX `chatId_UNIQUE` (`chat_id` ASC) VISIBLE
     ) ENGINE = InnoDB;
 
--- -----------------------------------------------------
--- Table `user_physical_data`
--- -----------------------------------------------------
+--changeset DaniilYehorov::20260312-02
 CREATE TABLE IF NOT EXISTS `user_physical_data` (
     `UserID` BIGINT NOT NULL,
     `age` INT NULL,
